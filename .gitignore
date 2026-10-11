@@ -1,0 +1,5 @@
+/target/
+**/*.rs.bk
+*.tar.gz
+SDL2-2.30.9/
+*.log
