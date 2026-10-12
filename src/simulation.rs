@@ -100,32 +100,23 @@ impl Simulation {
         self.auto_spawn
     }
 
-    /// Toggles Chevrolet Spark paint mode (Summit White vs Spark Factory Palette)
     pub fn toggle_paint_mode(&mut self) -> &'static str {
         match self.fleet_paint_mode {
             FleetPaintMode::SummitWhiteOnly => {
                 self.fleet_paint_mode = FleetPaintMode::SparkPalette;
-                for (idx, v) in self.vehicles.iter_mut().enumerate() {
-                    v.color_idx = idx % 8;
-                }
+                for (idx, v) in self.vehicles.iter_mut().enumerate() { v.color_idx = idx % 8; }
                 "Chevrolet Spark Factory Palette"
             }
             FleetPaintMode::SparkPalette => {
                 self.fleet_paint_mode = FleetPaintMode::SummitWhiteOnly;
-                for v in &mut self.vehicles {
-                    v.color_idx = 0;
-                }
+                for v in &mut self.vehicles { v.color_idx = 0; }
                 "Summit White (Photo Match)"
             }
         }
     }
 
-    /// Triggers when Escape key is pressed to finish simulation and display statistics
-    pub fn finish_simulation(&mut self) {
-        self.is_finished = true;
-    }
+    pub fn finish_simulation(&mut self) { self.is_finished = true; }
 
-    /// Restart simulation for another run
     pub fn restart(&mut self) {
         self.vehicles.clear();
         self.stats = StatsTracker::new();
@@ -134,42 +125,29 @@ impl Simulation {
         self.manager.close_call_pairs.clear();
     }
 
-    /// Main physics and AI simulation step
     pub fn update(&mut self, dt: f32) {
-        if self.is_finished {
-            return;
-        }
-
+        if self.is_finished { return; }
         self.stats.update_duration(dt);
 
-        // Auto spawn timer logic
         if self.auto_spawn {
             self.auto_spawn_timer += dt;
             if self.auto_spawn_timer >= self.auto_spawn_interval {
                 self.auto_spawn_timer = 0.0;
                 let origins = [Origin::South, Origin::North, Origin::West, Origin::East];
-                let chosen_origin = origins[(self.next_id * 3 + self.color_counter) % 4];
-                self.spawn_vehicle(chosen_origin);
+                self.spawn_vehicle(origins[(self.next_id * 3 + self.color_counter) % 4]);
             }
         }
 
-        // 1. Run smart intersection traffic management
         self.manager.manage_traffic(&mut self.vehicles, &mut self.stats, dt);
+        for v in self.vehicles.iter_mut() { v.update(dt); }
 
-        // 2. Update each vehicle kinematics
-        for v in self.vehicles.iter_mut() {
-            v.update(dt);
-        }
-
-        // 3. Remove completed vehicles and record final statistics
-        let mut i = 0;
-        while i < self.vehicles.len() {
-            if self.vehicles[i].is_finished() {
-                let finished_v = self.vehicles.remove(i);
-                self.stats.record_vehicle_passed(&finished_v);
+        self.vehicles.retain(|v| {
+            if v.is_finished() {
+                self.stats.record_vehicle_passed(v);
+                false
             } else {
-                i += 1;
+                true
             }
-        }
+        });
     }
 }
